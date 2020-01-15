@@ -246,4 +246,3 @@ class spectra:
 		msax.ax.set_ylabel("Yield (counts)",fontsize=font)
 		msax.ax.minorticks_on()
 				
-	plt.show()
