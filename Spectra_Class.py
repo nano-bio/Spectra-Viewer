@@ -200,9 +200,6 @@ class spectra:
 			pdsax.ax.plot(self.wls,self.pds_matrix)
 			if diff:
 				pdsax.ax.plot(self.wls,self.pds_matrix_sum,label="Sum of curves")
-				pdsax.ax.legend([*(peak+1),"Sum"],loc=0,title="Mass channel")
-			else:
-				pdsax.ax.legend(peak+1,loc=0,title="Mass channel")
 			pdsax.ax.set_xlabel("Wavelength (nm)",fontsize=font)
 		
 		pdsax.ax.minorticks_on()
@@ -245,4 +242,3 @@ class spectra:
 		msax.ax.set_xlabel("Mass per Charge (u/e)",fontsize=font)
 		msax.ax.set_ylabel("Yield (counts)",fontsize=font)
 		msax.ax.minorticks_on()
-				

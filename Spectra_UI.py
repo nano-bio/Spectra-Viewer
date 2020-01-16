@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'pyqt5test_ui_191024.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.3
+# Created by: PyQt5 UI code generator 5.13.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -135,6 +135,12 @@ class Ui_MainWindow(object):
         self.tableView.setWordWrap(False)
         self.tableView.setObjectName("tableView")
         self.verticalLayout_2.addWidget(self.tableView)
+        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.verticalLayout_2.addLayout(self.horizontalLayout_2)
+        self.pushButton_deselect = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_deselect.setObjectName("pushButton_deselect")
+        self.verticalLayout_2.addWidget(self.pushButton_deselect)
         self.gridLayout_3 = QtWidgets.QGridLayout()
         self.gridLayout_3.setObjectName("gridLayout_3")
         self.bs_thresh_text = QtWidgets.QDoubleSpinBox(self.centralwidget)
@@ -221,6 +227,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.widget_mpl_bs), _translate("MainWindow", "Brightness Spectrum"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.widget_mpl_iy), _translate("MainWindow", "Ion Yields"))
         self.label_4.setText(_translate("MainWindow", "Mass Brightness Settings"))
+        self.pushButton_deselect.setText(_translate("MainWindow", "De-select All"))
         self.label_6.setText(_translate("MainWindow", "Threshold for finding lines\n"
 "(multiple of noise level)"))
         self.bs_thresh_button.setText(_translate("MainWindow", "(Re-)Analyze"))

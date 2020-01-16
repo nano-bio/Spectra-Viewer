@@ -73,6 +73,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.pushButton_export.clicked.connect(lambda: self.export_ascii())
 		
 		
+		
 	def load_file(self):
 		openFileName = QFileDialog.getOpenFileName(self,"Select File(s)","","*.h5;*.hf5")
 		if openFileName[0]:
@@ -169,12 +170,17 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			self.tableView.setModel(self.tableModel)
 			self.tableView.setSortingEnabled(True)
 			self.tableModel.itemChanged.connect(lambda: self.checked(items))
+			self.pushButton_deselect.clicked.connect(lambda: self.decheck(items))
 		
 	def draw_pds(self):
 		if self.file_loaded:
 			self.iy_tab.ax.clear()
 			if len(self.check_list) > 0:
 				self.spec_obj.plot_peakdatasmooth(self.iy_tab,array(self.check_list),wl=int(self.smooth_spinBox.value()),po=0,cal=self.iy_calib_box.isChecked(),flat=self.flat_bool,diff=self.diff_bool)
+				if self.diff_bool:
+					self.iy_tab.ax.legend([*self.leg_list,"Sum"],loc=0,title="Mass channel")
+				else:
+					self.iy_tab.ax.legend(self.leg_list,loc=0,title="Mass channel")
 			self.iy_tab.draw()
 	
 	def show_read_wls(self):
@@ -182,12 +188,19 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.doubleSpinBox_wl0.setValue(self.spec_obj.wls[0])
 		self.doubleSpinBox_wlstep.setReadOnly(True)
 		self.doubleSpinBox_wlstep.setValue(self.spec_obj.med_wl_diff)
+	
+	def decheck(self,items_list):
+		self.check_list = []
+		for i in range(len(items_list)):
+			items_list[i][0].setCheckState(0)		
 			
 	def checked(self,items_list):
 		self.check_list = []
+		self.leg_list = []
 		for i in range(len(items_list)):
 			if items_list[i][0].checkState() == 2:
 				self.check_list.append(int(i))
+				self.leg_list.append("%g - %g"%(self.spec_obj.peak_ranges[i][0],self.spec_obj.peak_ranges[i][1]))
 		self.draw_pds()
 	
 	def _WidgetPlotfunc(self,mpl_qwidget):

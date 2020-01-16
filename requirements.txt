@@ -1,0 +1,5 @@
+pyqt5>=5.0
+numpy>=1.17
+h5py>=2.10
+scipy>=1.4
+matplotlib>=3.1
