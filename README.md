@@ -1,7 +1,7 @@
 # Spectra-Viewer
 Program for calibrating, viewing, and exporting laser scans from ClusToF
 
-Run by executing the main Spectra_Viewer.py script.
+Run by executing the main Spectra_Viewer.py script. On standard Windows installations of Python, changing the file suffix to .pyw will allow the script to be run by double clicking on it.
 
 Requires PyQt5, matplotlib (with PyQt5 backend), numpy, h5py, and scipy.
 
