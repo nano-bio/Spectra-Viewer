@@ -51,8 +51,13 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		extractAction.setShortcut("Ctrl+O")
 		extractAction.triggered.connect(self.load_file)
 		
+		exportAction = QAction("Export Mass Spectrum", self)
+		exportAction.triggered.connect(self.export_mass_spec)
+		
 		self.pushButton_loadh5.clicked.connect(self.load_file)
 		self.menuFile.addAction(extractAction)
+		self.menuFile.addSeparator()
+		self.menuFile.addAction(exportAction)
 		
 		self.comboBox_wl.setIndex = 0
 		self.check_list = []
@@ -128,19 +133,26 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.comboBox_wl.setCurrentIndex(1)
 		self.comboBox_wl.setEnabled(False)
 		self.select_gen_wls()
-		self.statusBar().showMessage('Wavelength data not found in log, manual input required!')
+		if not self.spec_obj._readadds:
+			self.statusBar().showMessage('Wavelength data not found in log, manual input required! No co-adding information found in file, unable to determine absolute statistical uncertanties.')
+		else:
+			self.statusBar().showMessage('Wavelength data not found in log, manual input required!')
 		self.reset_plots()
 			
 	def load_finish(self,specobj):
 		self.file_loaded = True
 		self.spec_obj = specobj
 		self.lineEdit_filename.setText(self.filename)
-		self.statusBar().showMessage('Loading Complete')
+		if not self.spec_obj._readadds:
+			self.statusBar().showMessage('Loading Complete. No co-adding information found in file, unable to determine absolute statistical uncertanties.')
+		else:
+			self.statusBar().showMessage('Loading Complete')
 		try:
 			self.read_wls()
 		except WlError:
 			self._cannot_read_wls()
 		self.draw_ms()
+		
 		
 	
 	def draw_ms(self):
@@ -217,8 +229,20 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.iy_tab.ax.clear()
 		self.iy_tab.draw()
 	
+	def export_mass_spec(self):
+		saveFileName = QFileDialog.getSaveFileName(self,"Export File","","ASCII file (*.dat *.txt)")
+		if saveFileName[0]:
+			header = "#%15s\t%10s\n"%("m/z","Counts")
+			with open(saveFileName[0],'w') as f:
+				#f.write(header)
+				for i in range(len(self.spec_obj.mset)):
+					f.write("%16.10f\t%10i\n"%(self.spec_obj.mset[i],self.spec_obj.dset[i]))
+		self.statusBar().showMessage('File export complete')
+				
+			
+	
 	def export_ascii(self):
-		saveFileName = QFileDialog.getSaveFileName(self,"Select File","","ASCII file (*.dat *.txt);;CSV file (*.csv)")
+		saveFileName = QFileDialog.getSaveFileName(self,"Export File","","ASCII file (*.dat *.txt);;CSV file (*.csv)")
 		if saveFileName[0]:
 			if saveFileName[1] == "ASCII file (*.dat *.txt)": separator = " "
 			elif saveFileName[1] == "CSV file (*.csv)": separator = ","
