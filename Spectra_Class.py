@@ -250,33 +250,3 @@ class spectra:
 		msax.ax.set_ylabel("Yield (counts)",fontsize=font)
 		msax.ax.minorticks_on()
 			
-	
-if __name__ == "__main__":
-	#path = "/Volumes/Storage/ClusToF/CsHeH/"
-	path = "/Volumes/Storage/ClusToF/Benz_a_anthracene/"
-	#path = "/Volumes/KINGSTON/CsHeH/"
-	#path = "/Users/michael/Downloads/"
-	masses = arange(266,430,1)
-	#masses = append(masses,array([256,260,264,300]))
-	savecorr = False
-	
-	
-	if 0:
-		spec1 = spectra(path+"DataFile_2019.10.10-14h56m03s_AS.h5") # 5723 BAA 400-500nm  0,1nm /60s
-		spec1.read_wl_log()
-		#spec1.make_wl_log(wl0=400,stepsize=0.1)
-		spec1.gen_data()
-		#spec1.plot_peakdata(array([228]),cal=True)
-		spec1.plot_peakdatasmooth(array([63,114,202,226,228,456,685]),wl=9,po=0,cal=True,flat=True)
-		spec1.find_lines(thresh=5)
-		
-	if 0:
-		spec2 = spectra(path+"DataFile_2019.10.09-20h04m03s_AS.h5") # 5723 BAA 400-500nm  0,1nm /60s
-		spec2.read_wl_log()
-		#spec2.make_wl_log(wl0=400,stepsize=0.1)
-		spec2.gen_data()
-		#spec2.plot_peakdata(array([228]),cal=True)
-		spec2.plot_peakdatasmooth(array([63,114,202,226,228,456,685]),wl=9,po=0,cal=True,flat=True)
-		spec2.find_lines(thresh=5)
-		
-	plt.show()
