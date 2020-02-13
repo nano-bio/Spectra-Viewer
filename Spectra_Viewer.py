@@ -67,7 +67,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.doubleSpinBox_wlstep.setReadOnly(True)
 		
 		self.bs_thresh_button.clicked.connect(lambda: self.draw_bs())
-		self.smooth_spinBox.valueChanged.connect(lambda: self.draw_pds())
+		self.smooth_spinBox.valueChanged.connect(lambda: self.smooth_box_changed())
 		
 		#self.iy_flattened_box.stateChanged.connect(lambda: self.draw_pds())
 		
@@ -109,6 +109,12 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			self.flat_bool = False
 			self.diff_bool = False
 		self.draw_pds()
+	
+	def smooth_box_changed(self):
+		if (self.smooth_spinBox.value() % 2) != 0: 
+			self.draw_pds()
+		else:
+			self.smooth_spinBox.setValue(self.smooth_spinBox.value() + 1)
 			
 	def select_gen_wls(self):
 		self.gen_wls_Button.setEnabled(True)
@@ -140,20 +146,21 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.reset_plots()
 			
 	def load_finish(self,specobj):
-		self.file_loaded = True
 		self.spec_obj = specobj
-		self.lineEdit_filename.setText(self.filename)
-		if not self.spec_obj._readadds:
-			self.statusBar().showMessage('Loading Complete. No co-adding information found in file, unable to determine absolute statistical uncertanties.')
+		if not self.spec_obj.read_error:
+			self.file_loaded = True
+			self.lineEdit_filename.setText(self.filename)
+			if not self.spec_obj._readadds:
+				self.statusBar().showMessage('Loading Complete. No co-adding information found in file, unable to determine absolute statistical uncertanties.')
+			else:
+				self.statusBar().showMessage('Loading Complete')
+			try:
+				self.read_wls()
+			except WlError:
+				self._cannot_read_wls()
+			self.draw_ms()
 		else:
-			self.statusBar().showMessage('Loading Complete')
-		try:
-			self.read_wls()
-		except WlError:
-			self._cannot_read_wls()
-		self.draw_ms()
-		
-		
+			self.statusBar().showMessage('Error Loading File. Input file not compatible with this software.')
 	
 	def draw_ms(self):
 		self.ms_tab.ax.clear()
@@ -251,7 +258,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 				for cl in self.check_list:
 					header += "%19s%1s"%("mass%i"%cl,separator)
 				header = header[:-1] +"\n"
-				out_table = append(self.spec_obj.wls[...,None],self.spec_obj.pds_matrix,1)
+				out_table = append(array(self.spec_obj.wls)[...,None],self.spec_obj.pds_matrix,1)
 			else:
 				header = "#"
 				for cl in self.check_list:

@@ -90,18 +90,20 @@ class spectra:
 		#self.config = str(f.attrs["Configuration File Contents"])
 		#print(sys.stdout.buffer.write(f.attrs["Configuration File Contents"]))
 		#print(f[u'/'].keys())
-		self.mset = array(f[u'FullSpectra/MassAxis'])
-		self.dset = array(f[u'FullSpectra/SumSpectrum'])
-		self.peakdata = array(f[u'PeakData/PeakData'])
-		peaktable = array(f[u'PeakData/PeakTable'])
-		self.peak_ranges = [list(i)[2:] for i in peaktable]
-		self.aqlog = f[u'AcquisitionLog/Log']
+		try:
+			self.mset = array(f[u'FullSpectra/MassAxis'])
+			self.dset = array(f[u'FullSpectra/SumSpectrum'])
+			self.peakdata = array(f[u'PeakData/PeakData'])
+			self.aqlog = f[u'AcquisitionLog/Log']
+			peaktable = array(f[u'PeakData/PeakTable'])
+			self.peak_ranges = [list(i)[2:] for i in peaktable]
+			self.read_error = False
+		except KeyError:
+			self.read_error = True
+		
 		self.wl_guess = 0
 		self.parent_peak = 266
 		self.tag_mass = 4
-		self.system = "Cs_He"
-		self.outputpath = "CsHe_output/"
-		self.id = ""
 		#powcor = np.loadtxt("power_master.txt")
 		#self.pcwl = powcor[:,1]
 		#self.pcfac = npabs(powcor[:,2]/np.max(powcor[:,2]))
