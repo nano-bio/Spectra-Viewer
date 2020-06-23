@@ -9,6 +9,8 @@ from scipy.signal import savgol_filter
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes,inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from sympy import symbols, solve, sympify, lambdify
+from re import findall
 
 
 
@@ -91,7 +93,7 @@ class spectra:
 		#print(sys.stdout.buffer.write(f.attrs["Configuration File Contents"]))
 		#print(f[u'/'].keys())
 		try:
-			self.mset = array(f[u'FullSpectra/MassAxis'])
+			self.mset = self.get_mass_axis(f)
 			self.dset = array(f[u'FullSpectra/SumSpectrum'])
 			self.peakdata = array(f[u'PeakData/PeakData'])
 			self.aqlog = f[u'AcquisitionLog/Log']
@@ -250,3 +252,37 @@ class spectra:
 		msax.ax.set_ylabel("Yield (counts)",fontsize=font)
 		msax.ax.minorticks_on()
 			
+	def get_mass_axis(self,h5file):		
+		try:
+			mass_cal_func = h5file['FullSpectra'].attrs['MassCalibration Function'].decode('latin-1')
+			samples = h5file['/'].attrs['NbrSamples'][0]
+		except KeyError:
+			# If calibraion function does not exist, read mass axis from file instead
+			mass_axis = array(h5file['FullSpectra/MassAxis'])
+			return mass_axis
+		else:
+			# Find all parameters
+			pattern = 'p[0-9]+'
+			pnames = findall(pattern,mass_cal_func)
+			
+			# Define symbolic variables
+			cal_parameter_syms = symbols(pnames,real=True)
+			sym_m = symbols('m')
+			sym_i = symbols('i',real=True,integer=True)
+			
+			# Solve calibation function for m
+			sympy_eq = sympify("Eq(" + mass_cal_func.replace("=", ",") + ")")
+			inv_mass_cal_func = solve(sympy_eq,sym_m)[0]
+			
+			# Convert function into object that can be called using numpy arrays as inputs
+			inv_mass_cal_func = lambdify([sym_i,cal_parameter_syms],inv_mass_cal_func)
+			
+			# Get numerical values of parameters from h5-file
+			cal_parameters = []
+			for pname in pnames:
+			    cal_parameters.append(h5file['FullSpectra'].attrs['MassCalibration ' + pname])
+			
+			# Define indices and calculate mass axis
+			i_values = arange(samples) + 1
+			mass_axis_cal = inv_mass_cal_func(i_values,cal_parameters)
+			return mass_axis_cal
