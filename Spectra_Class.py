@@ -1,7 +1,7 @@
 from __future__ import division
 from warnings import catch_warnings, simplefilter
 from h5py import File
-from numpy import pi, sqrt, exp, array, zeros, mean, arange, append, log, median, std, where
+from numpy import pi, sqrt, exp, array, zeros, mean, arange, append, log, median, std, where, diff
 from numpy import abs as npabs
 from numpy import sum as npsum
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from sympy import symbols, solve, sympify, lambdify
 from re import findall
-
+from LaserPowerCorrection import Power
 
 
 font = 12
@@ -172,16 +172,33 @@ class spectra:
 		signal_err = sqrt(self.signal)
 		background_err = sqrt(self.background)
 		
+		
 		with catch_warnings():
 			simplefilter("ignore",category=RuntimeWarning)
 			#print(self.signal.shape,(self.background/num_bg_meas).shape)
 			self.diff_signal = self.signal - (self.background/num_bg_meas)
 			self.flat_signal = self.signal/(self.background/num_bg_meas)
 			self.flat_signal_err = sqrt(signal_err**2*(num_bg_meas/self.background)**2+background_err**2*(num_bg_meas*self.signal/self.background**2)**2)
+			
+		wls_temp = []
+		i_temp = []
+		for i,w in enumerate(self.wls):
+			if (w not in wls_temp):
+				wls_temp.append(w)
+				i_temp.append(i)
+		
+		self.wls_pow = self.wls[i_temp]
+		self.flat_signal_pow = self.flat_signal[i_temp]
+		self.flat_signal_err_pow = self.flat_signal_err[i_temp]
+		
+		a = Power(array(self.wls_pow),self.flat_signal_pow,self.flat_signal_err_pow,"Power_Master_Full.txt")
+		self.flat_signal_pow = exp(-a.depletion)
+		self.flat_signal_err_pow = npabs(exp(-a.depletion) * a.depletion_error)
+			
 		
 	
 	
-	def plot_peakdatasmooth(self,pdsax,peak,wl=5,po=2,cal=False,flat=False,diff=False):
+	def plot_peakdatasmooth(self,pdsax,peak,wl=5,po=2,cal=False,flat=False,diff=False,pow_corr=True):
 		#self.pdcspfig,self.pdcspax = plt.subplots(nrows=1,ncols=1)
 		if not cal:
 			if flat:
@@ -197,16 +214,22 @@ class spectra:
 			pdsax.ax.set_xlabel("Bin index",fontsize=font)
 		else:
 			if flat:
-				self.pds_matrix = savgol_filter(self.flat_signal[:,peak],window_length=wl,polyorder=po,axis=0)
+				if pow_corr:
+					self.pds_matrix = savgol_filter(self.flat_signal_pow[:,peak],window_length=wl,polyorder=po,axis=0)
+					pdsax.ax.plot(self.wls_pow,self.pds_matrix)
+				else:
+					self.pds_matrix = savgol_filter(self.flat_signal[:,peak],window_length=wl,polyorder=po,axis=0)
+					pdsax.ax.plot(self.wls,self.pds_matrix)
 				pdsax.ax.set_ylabel("Relative Ion Yield",fontsize=font)
 			elif diff:
 				self.pds_matrix = savgol_filter(self.diff_signal[:,peak],window_length=wl,polyorder=po,axis=0)
 				self.pds_matrix_sum = savgol_filter(npsum(self.diff_signal[:,peak],axis=1),window_length=wl,polyorder=po,axis=0)
 				pdsax.ax.set_ylabel("Differential Ion Yield (counts)",fontsize=font)
+				pdsax.ax.plot(self.wls,self.pds_matrix)
 			else:
 				self.pds_matrix = savgol_filter(self.signal[:,peak],window_length=wl,polyorder=po,axis=0)
 				pdsax.ax.set_ylabel("Raw Ion Yield (counts)",fontsize=font)
-			pdsax.ax.plot(self.wls,self.pds_matrix)
+				pdsax.ax.plot(self.wls,self.pds_matrix)
 			if diff:
 				pdsax.ax.plot(self.wls,self.pds_matrix_sum,label="Sum of curves")
 			pdsax.ax.set_xlabel("Wavelength (nm)",fontsize=font)

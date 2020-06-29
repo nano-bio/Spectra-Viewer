@@ -72,12 +72,13 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		#self.iy_flattened_box.stateChanged.connect(lambda: self.draw_pds())
 		
 		self.comboBox_flat.currentIndexChanged.connect(lambda: self.flat_box_changed())
-		self.iy_calib_box.stateChanged.connect(lambda: self.draw_pds())
+		self.iy_calib_box.stateChanged.connect(lambda: self.cal_box_changed())
+		self.power_corr_box.stateChanged.connect(lambda: self.draw_pds())
 		self.comboBox_wl.currentIndexChanged.connect(lambda: self.wls_box_changed())
 		self.gen_wls_Button.clicked.connect(lambda: self.gen_wls())
 		self.pushButton_export.clicked.connect(lambda: self.export_ascii())
 		
-		
+	
 		
 	def load_file(self):
 		openFileName = QFileDialog.getOpenFileName(self,"Select File(s)","","*.h5;*.hf5")
@@ -102,13 +103,15 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		if self.comboBox_flat.currentIndex() == 0:
 			self.flat_bool = True
 			self.diff_bool = False
+			self.cal_box_changed()
 		elif self.comboBox_flat.currentIndex() == 1:
 			self.flat_bool = False
 			self.diff_bool = True
+			self.cal_box_changed()
 		elif self.comboBox_flat.currentIndex() == 2:
 			self.flat_bool = False
 			self.diff_bool = False
-		self.draw_pds()
+			self.cal_box_changed()
 	
 	def smooth_box_changed(self):
 		if (self.smooth_spinBox.value() % 2) != 0: 
@@ -134,7 +137,13 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.spec_obj.gen_data()
 		self.draw_bs()
 		
-		
+	def cal_box_changed(self):
+		if ((not self.iy_calib_box.isChecked()) or self.comboBox_flat.currentIndex() != 0):
+			self.power_corr_box.setEnabled(False)
+		else:
+			self.power_corr_box.setEnabled(True)
+		self.draw_pds()
+	
 	def _cannot_read_wls(self):
 		self.comboBox_wl.setCurrentIndex(1)
 		self.comboBox_wl.setEnabled(False)
@@ -195,7 +204,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		if self.file_loaded:
 			self.iy_tab.ax.clear()
 			if len(self.check_list) > 0:
-				self.spec_obj.plot_peakdatasmooth(self.iy_tab,array(self.check_list),wl=int(self.smooth_spinBox.value()),po=0,cal=self.iy_calib_box.isChecked(),flat=self.flat_bool,diff=self.diff_bool)
+				self.spec_obj.plot_peakdatasmooth(self.iy_tab,array(self.check_list),wl=int(self.smooth_spinBox.value()),po=0,cal=self.iy_calib_box.isChecked(),flat=self.flat_bool,diff=self.diff_bool,pow_corr=self.power_corr_box.isChecked())
 				if self.diff_bool:
 					self.iy_tab.ax.legend([*self.leg_list,"Sum"],loc=0,title="Mass channel")
 				else:
@@ -258,7 +267,10 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 				for cl in self.check_list:
 					header += "%19s%1s"%("mass%i"%cl,separator)
 				header = header[:-1] +"\n"
-				out_table = append(array(self.spec_obj.wls)[...,None],self.spec_obj.pds_matrix,1)
+				if (self.power_corr_box.isChecked() and self.comboBox_flat.currentIndex() == 0):
+					out_table = append(array(self.spec_obj.wls_pow)[...,None],self.spec_obj.pds_matrix,1)
+				else:
+					out_table = append(array(self.spec_obj.wls)[...,None],self.spec_obj.pds_matrix,1)
 			else:
 				header = "#"
 				for cl in self.check_list:
