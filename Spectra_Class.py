@@ -4,6 +4,8 @@ from h5py import File
 from numpy import pi, sqrt, exp, array, zeros, mean, arange, append, log, median, std, where, diff
 from numpy import abs as npabs
 from numpy import sum as npsum
+from numpy import min as npmin
+from numpy import max as npmax
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes,inset_axes
@@ -20,6 +22,7 @@ from matplotlib import rcParams
 rcParams['xtick.labelsize']=font
 rcParams['ytick.labelsize']=font
 rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
+
 
 class WlError(Exception):
     pass
@@ -77,6 +80,25 @@ def array_slicer(array,ind0s,indlen):
 		out_array[i,:] = mean(array[ind0:int(ind0+indlen),:],axis=0)
 	return out_array
 
+def laser_corr(wls,signal,signal_err,pow_table="Power_Master_Full.txt"):
+	
+	wls_temp = []
+	i_temp = []
+	for i,w in enumerate(wls):
+		if (w not in wls_temp):
+			wls_temp.append(w)
+			i_temp.append(i)
+	
+	wls_pow = wls[i_temp]
+	signal_pow = signal[i_temp]
+	signal_err_pow = signal_err[i_temp]
+	
+	a = Power(array(wls_pow),signal_pow,signal_err_pow,pow_table)
+	signal_pow = exp(-a.depletion)
+	signal_err_pow = npabs(exp(-a.depletion) * a.depletion_error)
+	
+	return wls_pow, signal_pow, signal_err_pow
+
 class spectra:
 	def __init__(self,filename):
 		f = File(filename, 'r')
@@ -103,12 +125,8 @@ class spectra:
 		except KeyError:
 			self.read_error = True
 		
-		self.wl_guess = 0
-		self.parent_peak = 266
-		self.tag_mass = 4
-		#powcor = np.loadtxt("power_master.txt")
-		#self.pcwl = powcor[:,1]
-		#self.pcfac = npabs(powcor[:,2]/np.max(powcor[:,2]))
+		self.bin_set = False
+		self.num_bins = 0
 		
 	def read_wl_log(self):
 		self.log_times = []
@@ -152,7 +170,7 @@ class spectra:
 		self.med_stepsize = channels_per_step
 
 	def gen_data(self):
-		num_bg_meas = self.peakdata[:,:,:,:].shape[2]-1
+		self.num_bg_meas = self.peakdata[:,:,:,:].shape[2]-1
 		channels_per_step = self.med_stepsize
 		
 		self.raw_signal = npsum(self.peakdata[:,:,0,:],axis=1)*self.numadds
@@ -175,27 +193,45 @@ class spectra:
 		
 		with catch_warnings():
 			simplefilter("ignore",category=RuntimeWarning)
-			#print(self.signal.shape,(self.background/num_bg_meas).shape)
-			self.diff_signal = self.signal - (self.background/num_bg_meas)
-			self.flat_signal = self.signal/(self.background/num_bg_meas)
-			self.flat_signal_err = sqrt(signal_err**2*(num_bg_meas/self.background)**2+background_err**2*(num_bg_meas*self.signal/self.background**2)**2)
-			
-		wls_temp = []
-		i_temp = []
-		for i,w in enumerate(self.wls):
-			if (w not in wls_temp):
-				wls_temp.append(w)
-				i_temp.append(i)
+			#print(self.signal.shape,(self.background/self.num_bg_meas).shape)
+			self.diff_signal = self.signal - (self.background/self.num_bg_meas)
+			self.flat_signal = self.signal/(self.background/self.num_bg_meas)
+			self.flat_signal_err = sqrt(signal_err**2*(self.num_bg_meas/self.background)**2+background_err**2*(self.num_bg_meas*self.signal/self.background**2)**2)
 		
-		self.wls_pow = self.wls[i_temp]
-		self.flat_signal_pow = self.flat_signal[i_temp]
-		self.flat_signal_err_pow = self.flat_signal_err[i_temp]
 		
-		a = Power(array(self.wls_pow),self.flat_signal_pow,self.flat_signal_err_pow,"Power_Master_Full.txt")
-		self.flat_signal_pow = exp(-a.depletion)
-		self.flat_signal_err_pow = npabs(exp(-a.depletion) * a.depletion_error)
+		self.wls_pow, self.flat_signal_pow, self.flat_signal_err_pow = laser_corr(self.wls,self.flat_signal,self.flat_signal_err)
 			
 		
+	def add_bin(self,start,width,separation,steps):
+		bin_inds = []
+		raw_temp = zeros(self.raw_signal.shape[0])
+		for s in range(steps):
+			for w in range(width):
+				bi = start+w+s*separation-1
+				bin_inds.append(bi)
+				raw_temp += npsum(self.raw_signal[:,bi:(bi+self.med_stepsize)],axis=1)
+		
+		signal_bin = npsum(self.signal[:,bin_inds],axis=1)
+		background_bin = npsum(self.background[:,bin_inds],axis=1)
+		
+		signal_err_bin = sqrt(signal_bin)
+		background_err_bin = sqrt(background_bin)
+		
+		diff_signal_bin = signal_bin - (background_bin/self.num_bg_meas)
+		flat_signal_bin = (signal_bin/(background_bin/self.num_bg_meas))
+		flat_signal_bin_err = sqrt(signal_err_bin**2*(self.num_bg_meas/background_bin)**2+background_err_bin**2*(self.num_bg_meas*signal_bin/background_bin**2)**2)
+		
+		self.raw_signal = append(self.raw_signal,raw_temp[:,None],axis=1)
+		self.signal = append(self.signal,signal_bin[:,None],axis=1)
+		self.flat_signal = append(self.flat_signal,flat_signal_bin[:,None],axis=1)
+		self.flat_signal_err = append(self.flat_signal_err,flat_signal_bin_err[:,None],axis=1)
+		self.diff_signal = append(self.diff_signal,diff_signal_bin[:,None],axis=1)
+		
+		self.peak_ranges.append([self.peak_ranges[npmin(bin_inds)][0],self.peak_ranges[npmax(bin_inds)][1]])
+		self.wls_pow, self.flat_signal_pow, self.flat_signal_err_pow = laser_corr(self.wls,self.flat_signal,self.flat_signal_err)
+		
+		self.bin_set = True
+		self.num_bins += 1
 	
 	
 	def plot_peakdatasmooth(self,pdsax,peak,wl=5,po=2,cal=False,flat=False,diff=False,pow_corr=True):
@@ -248,6 +284,11 @@ class spectra:
 			abs_scatter = npabs(-log(self.flat_signal))
 		
 		self.mass_channel = arange(abs_scatter.shape[1])+1
+		self.mass_channel_name = (arange(abs_scatter.shape[1])+1).astype('|S10')
+		if self.bin_set:
+			for i in range(self.num_bins):
+				self.mass_channel_name[-(self.num_bins-i)] = "Bin %i"%(i+1)
+			
 		self.peak_counts = zeros(abs_scatter.shape[1])
 		
 		mean_level = mean(self.raw_signal,axis=0)

@@ -16,6 +16,9 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 
 
 
+class StandardItemBin(QStandardItem):
+	def __lt__(self, other):
+		return float(self.text().strip('Bin ')) < float(other.text().strip('Bin '))
 
 class StandardItem(QStandardItem):
 	def __lt__(self, other):
@@ -77,6 +80,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.comboBox_wl.currentIndexChanged.connect(lambda: self.wls_box_changed())
 		self.gen_wls_Button.clicked.connect(lambda: self.gen_wls())
 		self.pushButton_export.clicked.connect(lambda: self.export_ascii())
+		self.pushButton_bincreate.clicked.connect(lambda: self.add_bin())
 		
 	
 		
@@ -185,14 +189,15 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			
 			self.tableModel = QStandardItemModel(self)
 			self.tableModel.clear()
-			self.tableModel.setHorizontalHeaderLabels(["Mass Channel","Brightness","Lower Limit","Upper Limit"])
+			self.tableModel.setHorizontalHeaderLabels(["Channel ID","Mass Channel","Brightness","Lower Limit","Upper Limit"])
 			items = []
 			for i in range(len(self.spec_obj.mass_channel)):
+				col0 = StandardItemBin("%s"%self.spec_obj.mass_channel_name[i].decode())
 				col1 = StandardItem("%i"%self.spec_obj.mass_channel[i])
 				col2 = StandardItem("%i"%self.spec_obj.peak_counts[i])
 				col3 = StandardItem("%g"%self.spec_obj.peak_ranges[i][0])
 				col4 = StandardItem("%g"%self.spec_obj.peak_ranges[i][1])
-				items.append([col1,col2,col3,col4])
+				items.append([col0,col1,col2,col3,col4])
 				items[i][0].setCheckable(True)
 				self.tableModel.appendRow(items[i])
 			self.tableView.setModel(self.tableModel)
@@ -231,6 +236,11 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 				self.leg_list.append("%g - %g"%(self.spec_obj.peak_ranges[i][0],self.spec_obj.peak_ranges[i][1]))
 		self.draw_pds()
 	
+	def add_bin(self):
+		if self.file_loaded:
+			self.spec_obj.add_bin(int(self.binstart_spinBox.value()),int(self.binwidth_spinBox.value()),int(self.binsep_spinBox.value()),int(self.binsteps_spinBox.value()))
+			self.draw_bs()
+	
 	def _WidgetPlotfunc(self,mpl_qwidget):
 		mpl_qwidget.setLayout(QVBoxLayout())
 		canvas = PlotCanvas(mpl_qwidget)
@@ -238,6 +248,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		mpl_qwidget.layout().addWidget(toolbar)
 		mpl_qwidget.layout().addWidget(canvas)
 		return canvas
+	
 	
 	def reset_plots(self):
 		self.bs_tab.ax.clear()
@@ -265,7 +276,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			if self.iy_calib_box.isChecked():
 				header = "#%18s%1s"%("Wavelengths_(nm)",separator)
 				for cl in self.check_list:
-					header += "%19s%1s"%("mass%i"%cl,separator)
+					header += "%19s%1s"%("mass%g-%g"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]),separator)
 				header = header[:-1] +"\n"
 				if (self.power_corr_box.isChecked() and self.comboBox_flat.currentIndex() == 0):
 					out_table = append(array(self.spec_obj.wls_pow)[...,None],self.spec_obj.pds_matrix,1)
@@ -274,7 +285,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			else:
 				header = "#"
 				for cl in self.check_list:
-					header += "mass%20i"%cl
+					header += "%24s"%("mass%g-%g"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]))
 				header +="\n"
 				out_table = self.spec_obj.pds_matrix
 			with open(saveFileName[0],'w') as f:
