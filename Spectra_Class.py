@@ -1,7 +1,7 @@
 from __future__ import division
 from warnings import catch_warnings, simplefilter
 from h5py import File
-from numpy import pi, sqrt, exp, array, zeros, mean, arange, append, log, median, std, where, diff
+from numpy import pi, sqrt, exp, array, zeros, mean, arange, append, log, median, std, where, diff, isnan, floor
 from numpy import abs as npabs
 from numpy import sum as npsum
 from numpy import min as npmin
@@ -87,12 +87,12 @@ def laser_corr(wls,signal,signal_err,pow_table="Power_Master_Full.txt"):
 	for i,w in enumerate(wls):
 		if (w not in wls_temp):
 			wls_temp.append(w)
-			i_temp.append(i)
+			i_temp.append(int(i))
 	
 	wls_pow = wls[i_temp]
 	signal_pow = signal[i_temp]
 	signal_err_pow = signal_err[i_temp]
-	
+	print(signal_pow)
 	a = Power(array(wls_pow),signal_pow,signal_err_pow,pow_table)
 	signal_pow = exp(-a.depletion)
 	signal_err_pow = npabs(exp(-a.depletion) * a.depletion_error)
@@ -165,6 +165,7 @@ class spectra:
 			self.wls.append(wl0+i*stepsize)
 			self.log_inds.append(channels_per_step*i)
 		#self.log_inds.append(steps*channels_per_step)
+		self.wls = array(self.wls)
 		self.log_inds = array(self.log_inds)
 		self.wl_inds = self.log_inds
 		self.med_stepsize = channels_per_step
@@ -173,17 +174,18 @@ class spectra:
 		self.num_bg_meas = self.peakdata[:,:,:,:].shape[2]-1
 		channels_per_step = self.med_stepsize
 		
-		self.raw_signal = npsum(self.peakdata[:,:,0,:],axis=1)*self.numadds
-		self.raw_background = npsum(npsum(self.peakdata[:,:,1:,:],axis=2),axis=1)*self.numadds
+		max_i = int(floor(npmax(self.mset)-1))
+		self.peak_ranges = self.peak_ranges[:max_i]
+		self.raw_signal = npsum(self.peakdata[:,:,0,:max_i],axis=1)*self.numadds
+		self.raw_background = npsum(npsum(self.peakdata[:,:,1:,:max_i],axis=2),axis=1)*self.numadds
 		
 		out_array = zeros([len(self.wl_inds),self.raw_signal.shape[1]])
 		bg_out_array = zeros([len(self.wl_inds),self.raw_background.shape[1]])
 		
 		for i,ind0 in enumerate(self.wl_inds):
-			out_array[i,:] = npsum(self.raw_signal[ind0:int(ind0+channels_per_step),:],axis=0)
-			bg_out_array[i,:] = npsum(self.raw_background[ind0:int(ind0+channels_per_step),:],axis=0)
+			out_array[i,:] = npsum(self.raw_signal[ind0:int(ind0+channels_per_step),:max_i],axis=0)
+			bg_out_array[i,:] = npsum(self.raw_background[ind0:int(ind0+channels_per_step),:max_i],axis=0)
 			
-		
 		self.signal = out_array
 		self.background = bg_out_array
 		
@@ -193,10 +195,14 @@ class spectra:
 		
 		with catch_warnings():
 			simplefilter("ignore",category=RuntimeWarning)
-			#print(self.signal.shape,(self.background/self.num_bg_meas).shape)
 			self.diff_signal = self.signal - (self.background/self.num_bg_meas)
 			self.flat_signal = self.signal/(self.background/self.num_bg_meas)
 			self.flat_signal_err = sqrt(signal_err**2*(self.num_bg_meas/self.background)**2+background_err**2*(self.num_bg_meas*self.signal/self.background**2)**2)
+			
+			self.flat_signal[isnan(self.flat_signal)] = 0
+			self.flat_signal_err[isnan(self.flat_signal_err)] = 0
+			self.flat_signal[self.flat_signal == 0] = 1e-6
+			self.flat_signal_err[self.flat_signal_err == 0] = 1e-6
 		
 		
 		self.wls_pow, self.flat_signal_pow, self.flat_signal_err_pow = laser_corr(self.wls,self.flat_signal,self.flat_signal_err)
