@@ -48,7 +48,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		
 		self.lineEdit_filename.setReadOnly(True)
 		self.file_loaded = False
-		
+		self.cal_loaded = False
 		
 		extractAction = QAction("Open h5-file", self)
 		extractAction.setShortcut("Ctrl+O")
@@ -131,6 +131,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 	def gen_wls(self):
 		if self.file_loaded:
 			self.spec_obj.make_wl_log(wl0=self.doubleSpinBox_wl0.value(),stepsize=self.doubleSpinBox_wlstep.value())
+			self.cal_loaded = True
 			self.spec_obj.gen_data()
 			self.draw_bs()
 		
@@ -138,6 +139,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.spec_obj.read_wl_log()
 		self.show_read_wls()
 		self.comboBox_wl.setEnabled(True)
+		self.cal_loaded = True
 		self.spec_obj.gen_data()
 		self.draw_bs()
 		
@@ -156,6 +158,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			self.statusBar().showMessage('Wavelength data not found in log, manual input required! No co-adding information found in file, unable to determine absolute statistical uncertanties.')
 		else:
 			self.statusBar().showMessage('Wavelength data not found in log, manual input required!')
+		self.cal_loaded = False
 		self.reset_plots()
 			
 	def load_finish(self,specobj):
@@ -189,19 +192,20 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			
 			self.tableModel = QStandardItemModel(self)
 			self.tableModel.clear()
-			self.tableModel.setHorizontalHeaderLabels(["Channel ID","Mass Channel","Brightness","Lower Limit","Upper Limit"])
+			self.tableModel.setHorizontalHeaderLabels(["Channel ID","Brightness","Lower Limit","Upper Limit"])
 			items = []
 			for i in range(len(self.spec_obj.mass_channel)):
 				col0 = StandardItemBin("%s"%self.spec_obj.mass_channel_name[i].decode())
-				col1 = StandardItem("%i"%self.spec_obj.mass_channel[i])
+				#col1 = StandardItem("%i"%self.spec_obj.mass_channel[i])
 				col2 = StandardItem("%i"%self.spec_obj.peak_counts[i])
 				col3 = StandardItem("%g"%self.spec_obj.peak_ranges[i][0])
 				col4 = StandardItem("%g"%self.spec_obj.peak_ranges[i][1])
-				items.append([col0,col1,col2,col3,col4])
+				items.append([col0,col2,col3,col4])
 				items[i][0].setCheckable(True)
 				self.tableModel.appendRow(items[i])
 			self.tableView.setModel(self.tableModel)
 			self.tableView.setSortingEnabled(True)
+			self.tableView.sortByColumn(0,0)
 			self.tableModel.itemChanged.connect(lambda: self.checked(items))
 			self.pushButton_deselect.clicked.connect(lambda: self.decheck(items))
 		
@@ -237,7 +241,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.draw_pds()
 	
 	def add_bin(self):
-		if self.file_loaded:
+		if (self.file_loaded and self.cal_loaded):
 			self.spec_obj.add_bin(int(self.binstart_spinBox.value()),int(self.binwidth_spinBox.value()),int(self.binsep_spinBox.value()),int(self.binsteps_spinBox.value()))
 			self.draw_bs()
 	

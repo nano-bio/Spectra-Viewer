@@ -92,7 +92,7 @@ def laser_corr(wls,signal,signal_err,pow_table="Power_Master_Full.txt"):
 	wls_pow = wls[i_temp]
 	signal_pow = signal[i_temp]
 	signal_err_pow = signal_err[i_temp]
-	print(signal_pow)
+
 	a = Power(array(wls_pow),signal_pow,signal_err_pow,pow_table)
 	signal_pow = exp(-a.depletion)
 	signal_err_pow = npabs(exp(-a.depletion) * a.depletion_error)
@@ -150,9 +150,9 @@ class spectra:
 			self.log_inds = (self.log_times * self.peakdata.shape[0]) // self.log_times[-1]
 			
 			self.wl_inds = self.log_inds[real_times]
-			self.med_stepsize = round(median(self.log_inds[1:]-self.log_inds[:-1]))
+			self.med_stepsize = int(round(median(self.log_inds[1:]-self.log_inds[:-1])))
 			if self.med_stepsize == 0:
-				self.med_stepsize = 1
+				self.med_stepsize = int(1)
 		else:
 			raise WlError("No wavelengths found in log.")
 
@@ -213,7 +213,7 @@ class spectra:
 		raw_temp = zeros(self.raw_signal.shape[0])
 		for s in range(steps):
 			for w in range(width):
-				bi = start+w+s*separation-1
+				bi = int(start+w+s*separation-1)
 				bin_inds.append(bi)
 				raw_temp += npsum(self.raw_signal[:,bi:(bi+self.med_stepsize)],axis=1)
 		
