@@ -184,12 +184,11 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.ms_tab.ax.set_ylim([0,None])
 		self.ms_tab.draw()
 	
-	def draw_bs(self):
+	def draw_bs(self,add_bin=False):
 		if self.file_loaded:
 			self.reset_plots()
 			self.spec_obj.find_lines(self.bs_tab,thresh=float(self.bs_thresh_text.value()))
 			self.bs_tab.draw()
-			
 			self.tableModel = QStandardItemModel(self)
 			self.tableModel.clear()
 			self.tableModel.setHorizontalHeaderLabels(["Channel ID","Brightness","Lower Limit","Upper Limit"])
@@ -206,6 +205,11 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			self.tableView.setModel(self.tableModel)
 			self.tableView.setSortingEnabled(True)
 			self.tableView.sortByColumn(0,0)
+			for i in self.check_list:
+				items[i][0].setCheckState(2)
+			if add_bin:
+				items[-1][0].setCheckState(2)
+			self.checked(items)
 			self.tableModel.itemChanged.connect(lambda: self.checked(items))
 			self.pushButton_deselect.clicked.connect(lambda: self.decheck(items))
 		
@@ -243,7 +247,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 	def add_bin(self):
 		if (self.file_loaded and self.cal_loaded):
 			self.spec_obj.add_bin(int(self.binstart_spinBox.value()),int(self.binwidth_spinBox.value()),int(self.binsep_spinBox.value()),int(self.binsteps_spinBox.value()))
-			self.draw_bs()
+			self.draw_bs(add_bin=True)
 	
 	def _WidgetPlotfunc(self,mpl_qwidget):
 		mpl_qwidget.setLayout(QVBoxLayout())
