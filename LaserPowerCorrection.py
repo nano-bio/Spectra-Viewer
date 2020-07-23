@@ -49,10 +49,12 @@ class Power(object):
         self.csy = data_cube[xi,:]
         self.csy_error = data_cube_err[xi,:]
 
-        self.csy[self.csy == 0] = 1e-5
+        # These next two lines handle issues with 0 or infinite values from bins with no data.
+        self.csy[self.csy == 0] = 1e-12
+        self.csy[np.where(np.isfinite(self.csy) == False)] = 1e12
+
         self.raw = self.csy
         self.csy = -np.log(self.csy)
-
         self.pt = inter.PchipInterpolator(np.sort(self.csx), self.csy,axis=0)
         self.pt_error = inter.PchipInterpolator(np.sort(self.csx), self.csy_error,axis=0)
 
