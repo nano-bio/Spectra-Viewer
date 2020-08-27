@@ -295,7 +295,11 @@ class spectra:
     def find_lines(self, bsax, num_bins=1, thresh=5):
         # self.flfig,self.flfig = plt.subplots(nrows=1,ncols=1)
 
-        smoothed = savgol_filter(self.flat_signal, window_length=15, polyorder=1, axis=0)
+        if len(self.flat_signal) > 15:
+            wl = 15
+        else:
+            wl = len(self.flat_signal) - 1
+        smoothed = savgol_filter(self.flat_signal, window_length=wl, polyorder=1, axis=0)
 
         with catch_warnings():
             simplefilter("ignore", category=RuntimeWarning)
