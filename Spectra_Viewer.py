@@ -1,5 +1,5 @@
 from sys import argv, exit
-from numpy import array, append
+from numpy import array, append, empty
 
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QAction, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QSizePolicy, QPushButton, QGridLayout, QFileDialog
 from PyQt5.QtGui import QStandardItem, QStandardItemModel
@@ -81,6 +81,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.gen_wls_Button.clicked.connect(lambda: self.gen_wls())
 		self.pushButton_export.clicked.connect(lambda: self.export_ascii())
 		self.pushButton_bincreate.clicked.connect(lambda: self.add_bin())
+		self.pushButton_batchcreate.clicked.connect(lambda: self.batch_bins())
 		
 	
 		
@@ -184,7 +185,7 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 		self.ms_tab.ax.set_ylim([0,None])
 		self.ms_tab.draw()
 	
-	def draw_bs(self,add_bin=False):
+	def draw_bs(self,add_bin=0):
 		if self.file_loaded:
 			self.reset_plots()
 			self.spec_obj.find_lines(self.bs_tab,thresh=float(self.bs_thresh_text.value()))
@@ -207,8 +208,8 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			self.tableView.sortByColumn(0,0)
 			for i in self.check_list:
 				items[i][0].setCheckState(2)
-			if add_bin:
-				items[-1][0].setCheckState(2)
+			if add_bin > 0:
+				for i in items[-add_bin:]: i[0].setCheckState(2)
 			self.checked(items)
 			self.tableModel.itemChanged.connect(lambda: self.checked(items))
 			self.pushButton_deselect.clicked.connect(lambda: self.decheck(items))
@@ -247,7 +248,14 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 	def add_bin(self):
 		if (self.file_loaded and self.cal_loaded):
 			self.spec_obj.add_bin(int(self.binstart_spinBox.value()),int(self.binwidth_spinBox.value()),int(self.binsep_spinBox.value()),int(self.binsteps_spinBox.value()))
-			self.draw_bs(add_bin=True)
+			self.draw_bs(add_bin=1)
+	
+	def batch_bins(self):
+		if (self.file_loaded and self.cal_loaded):
+			for i in range(int(self.batchsteps_spinBox.value())):
+				b_start = int(self.batchstart_spinBox.value()) + i * int(self.batchsep_spinBox.value())
+				self.spec_obj.add_bin(b_start,int(self.batchwidth_spinBox.value()),1,1)
+			self.draw_bs(add_bin=int(self.batchsteps_spinBox.value()))
 	
 	def _WidgetPlotfunc(self,mpl_qwidget):
 		mpl_qwidget.setLayout(QVBoxLayout())
@@ -282,26 +290,33 @@ class MyWindow(QMainWindow,Ui_MainWindow):
 			if saveFileName[1] == "ASCII file (*.dat *.txt)": separator = " "
 			elif saveFileName[1] == "CSV file (*.csv)": separator = ","
 			if self.iy_calib_box.isChecked():
-				header = "#%18s%1s"%("Wavelengths_(nm)",separator)
+				header = "#%22s%1s"%("Wavelengths_(nm)",separator)
 				for cl in self.check_list:
-					header += "%19s%1s"%("mass%g-%g"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]),separator)
+					header += "%23s%1s"%("mass%g-%g"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]),separator)
+					header += "%23s%1s"%("mass%g-%g_err"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]),separator)
 				header = header[:-1] +"\n"
 				if (self.power_corr_box.isChecked() and self.comboBox_flat.currentIndex() == 0):
-					out_table = append(array(self.spec_obj.wls_pow)[...,None],self.spec_obj.pds_matrix,1)
+					c = empty((self.spec_obj.pds_matrix.shape[0], self.spec_obj.pds_matrix.shape[1] + self.spec_obj.pds_matrix_err.shape[1]), dtype=self.spec_obj.pds_matrix.dtype)
+					c[:,0::2] = self.spec_obj.pds_matrix
+					c[:,1::2] = self.spec_obj.pds_matrix_err
+					out_table = append(array(self.spec_obj.wls_pow)[...,None],c,1)
 				else:
-					out_table = append(array(self.spec_obj.wls)[...,None],self.spec_obj.pds_matrix,1)
+					c = empty((self.spec_obj.pds_matrix.shape[0], self.spec_obj.pds_matrix.shape[1] + self.spec_obj.pds_matrix_err.shape[1]), dtype=self.spec_obj.pds_matrix.dtype)
+					c[:,0::2] = self.spec_obj.pds_matrix
+					c[:,1::2] = self.spec_obj.pds_matrix_err
+					out_table = append(array(self.spec_obj.wls)[...,None],c,1)
 			else:
 				header = "#"
 				for cl in self.check_list:
-					header += "%24s"%("mass%g-%g"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]))
+					header += "%28s"%("mass%g-%g"%(self.spec_obj.peak_ranges[cl][0],self.spec_obj.peak_ranges[cl][1]))
 				header +="\n"
 				out_table = self.spec_obj.pds_matrix
 			with open(saveFileName[0],'w') as f:
 				f.write(header)
 				for r in range(out_table.shape[0]):
 					for c in range(out_table.shape[1]-1):
-						f.write("%19g%s"%(out_table[r,c],separator))
-					f.write("%19g\n"%(out_table[r,out_table.shape[1]-1]))
+						f.write("%23g%s"%(out_table[r,c],separator))
+					f.write("%23g\n"%(out_table[r,out_table.shape[1]-1]))
 			self.statusBar().showMessage('File export complete')
 			
 							

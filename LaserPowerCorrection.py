@@ -44,6 +44,7 @@ class Power(object):
         self.ex = self.power0[:, 0]
         self.ey = self.power0[:, 1]
         self.ey_error = abs((self.power0[:, 1] * power_meter_relative_error)/np.sqrt(power_meter_averaging_number))
+        
         xi = np.argsort(wls_data)
         self.csx = wls_data[xi]
         self.csy = data_cube[xi,:]
@@ -53,13 +54,15 @@ class Power(object):
         self.csy[self.csy == 0] = 1e-12
         self.csy[np.where(np.isfinite(self.csy) == False)] = 1e12
 
-        self.raw = self.csy
+        self.raw = self.csy * 1.0
+        self.raw_error = self.csy_error * 1.0
         self.csy = -np.log(self.csy)
-        self.pt = inter.PchipInterpolator(np.sort(self.csx), self.csy,axis=0)
-        self.pt_error = inter.PchipInterpolator(np.sort(self.csx), self.csy_error,axis=0)
+        self.csy_error = -1/self.csy_error
+        self.pt = inter.PchipInterpolator(self.csx, self.csy,axis=0)
+        self.pt_error = inter.PchipInterpolator(self.csx, self.csy_error,axis=0)
 
         self.eyy = np.array((self.ey*self.ex)/(h*cspeed))
-        self.eyy_error = np.array(abs(self.ex/(h*cspeed)*self.ey_error))
+        self.eyy_error = np.array(abs(self.ex/(h*cspeed)*np.abs(self.ey_error)))
         self.eyy = np.around(self.eyy, 0)
 
         self.eyyy = self.eyy
@@ -73,7 +76,8 @@ class Power(object):
         self.ptt_error = inter.PchipInterpolator(self.exx, self.eyy_error)
 
         self.depletion = self.pt(self.csx)/(self.ptt(self.csx))[:,None]*1e26
-        self.depletion_error = abs(-1./(self.raw*self.ptt(self.csx)[:,None]))*self.csy_error + abs(-np.log(self.raw)/(self.ptt(self.csx)[:,None])**2)*self.ptt_error(self.csx)[:,None]
+        self.depletion_error = np.sqrt((1/(self.ptt(self.csx))[:,None]* self.pt_error(self.csx))**2 + (self.pt(self.csx)/(self.ptt(self.csx)**2)[:,None] * self.ptt_error(self.csx)[:,None])**2) * 1e23
+        #self.depletion_error = abs(-1./(self.raw*self.ptt(self.csx)[:,None])*self.raw_error) + abs(-np.log(self.raw)/(self.ptt(self.csx)[:,None])**2)*self.ptt_error(self.csx)[:,None]*1e26
 
         self.csf = frequency_air(self.csx)
         self.csw = wavenumber(self.csx)
